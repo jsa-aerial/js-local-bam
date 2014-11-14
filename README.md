@@ -111,8 +111,9 @@ bamR.throttledRegions2BAM(
 Constructor for bai reader and decoder.  baifile is a bai binary
 index file.
 
+```javascript
 function readBaiFile(baiFile)
-
+```
 
 Main function for a bai reader.  Obtains and decodes the index
 and caches information on it used by other methods.  So, must be
