@@ -41,6 +41,57 @@
 //
 // May also want bv-local-sampling.js
 //
+//
+// Basic user level API.  There are two 'object' types with
+// constructors:
+//
+// readBaiFile which takes a bam index (bai) filespec and initializes
+// a bai reader.  Provides methods
+//
+//   * getIndex - builds the index information
+//   * bin2Ranges - returns the chunk information for a [ref binid]
+//   * bin2Beg - returns first chunk of bin
+//   * bin2End - returns last chunk of bin
+//   * getChunks - returns all chunks for bins covering region in ref
+//
+// Details below
+//
+// readBinaryBAM which takes a bai filespec and a BGZF BAM filespec
+// initializes a bai reader and builds binary BAM reader.  Provides
+// methods
+//
+//   * bamFront - obtain and return the bam front material:
+//     - the header
+//     - the reference list
+//
+//   * refName2Index - takes a string reference name and returns its
+//     list index
+//
+//   * refsWithReads - returns a vector of all the listed references
+//     which have actual read data
+//
+//   * getAlnUbas - Obtains unsigned byte arrays (UBAs) for a set of
+//     alignments associated with a ref and region
+//
+//   * getAlns - obtains alignment information, in either text or
+//     binary format, for a ref and region.  The binary format is for
+//     lower level functions constructing new bam file chunks
+//     (typically from a sampling)
+//
+//   * region2BAM - takes a region map defining a reference and region
+//     and builds a vector of bgzf blocks covering the alignment data.
+//
+//   * regions2BAM - takes a vector of region maps and for each
+//     invokes region2BAM, returning the resulting vector of vectors
+//     of bam chunks
+//
+//   * throttledRegions2BAM - like regsion2BAM, but builds a
+//     continuation that controls the stepping process and passes it
+//     to user cbfn for control along with bam data
+//
+//   * getChunks - returns all chunks covered by region
+//
+//
 // Examples:
 //
 // With files[0] == bam file
@@ -406,54 +457,12 @@ function readBinaryFile(evt) {
 // readBaiFile which takes a filespec and initializes a bai
 // reader.  Provides methods
 //
-//   * getIndex - builds the index information
-//   * bin2Ranges - returns the chunk information for a [ref binid]
-//   * bin2Beg - returns first chunk of bin
-//   * bin2End - returns last chunk of bin
-//   * getChunks - returns all chunks for bins covering region in ref
-//
-// Details below
-//
 // readBinaryBAM which takes a bai filespec and a BGZF BAM filespec
-// initializes a bai reader and builds binary BAM reader.  Provides
-// methods
+// initializes a bai reader and builds binary BAM reader.
 //
-//   * bamFront - obtain and return the bam front material:
-//     - the header
-//     - the reference list
-//
-//   * refName2Index - takes a string reference name and returns its
-//     list index
-//
-//   * refsWithReads - returns a vector of all the listed references
-//     which have actual read data
-//
-//   * getAlnUbas - Obtains unsigned byte arrays (UBAs) for a set of
-//     alignments associated with a ref and region
-//
-//   * getAlns - obtains alignment information, in either text or
-//     binary format, for a ref and region.  The binary format is for
-//     lower level functions constructing new bam file chunks
-//     (typically from a sampling)
-//
-//   * region2BAM - takes a region map defining a reference and region
-//     and builds a vector of bgzf blocks covering the alignment data.
-//
-//   * regions2BAM - takes a vector of region maps and for each
-//     invokes region2BAM, returning the resulting vector of vectors
-//     of bam chunks
-//
-//   * throttledRegions2BAM - like regsion2BAM, but builds a
-//     continuation that controls the stepping process and passes it
-//     to user cbfn for control along with bam data
-//
-//   * getChunks - returns all chunks covered by region
-//
-// Details below
 
-
-// Constructor for bai reader and decoder.  baifile is a bgzipped
-// bai binary index file.
+// Constructor for bai reader and decoder.  baifile is a bai binary
+// index file.
 function readBaiFile(baiFile) {
     if (!(this instanceof arguments.callee)) {
         throw new Error("Constructor may not be called as a function");
@@ -829,8 +838,8 @@ readBinaryBAM.prototype.region2BAM =
 //       console.log("FINISHED")}});
 //
 // *** NOTE: in this variant _all_ regmaps in refsNregions are
-// *** processed.  See throttledRegions2BAM for variant where user,
-// *** via cbfn, has more control.
+// *** processed.  See throttledRegions2BAM for variant where the
+// *** user, via cbfn / continuation, has more control.
 readBinaryBAM.prototype.regions2BAM =
     function (refsNregions, cbfn) {
         var bamRthis = this;
@@ -859,17 +868,20 @@ readBinaryBAM.prototype.regions2BAM =
 // refsNregions to step through. CBFN must have the following
 // signature to make this work:
 //
-// function (bgzfBlks, fn, regmap) {...}
+// function (bgzfBlks, contfn, regmap) {...}
 //
 // The first argument is just as for cbfn for regions2BAM.  The next
-// two provide the throttling effect. To make the next step through
-// refsNregions, cbfn would call fn with regmap:
+// two provide the throttling effect. contfn closes over the control
+// state of the processing (basically the refmaps left) to enable user
+// determined stepping.  To make the next step through refsNregions,
+// cbfn would call the continuation function contfn with regmap as its
+// argument:
 //
-// function (bgzfBlks, fn, regmap){
+// function (bgzfBlks, contfn, regmap){
 //  ...
 //  if (continue) {
 //    ...
-//    fn.call(this, regmap); // NOTE 'this' here is the binary bam reader
+//    contfn.call(this, regmap); // NOTE 'this' here is the binary bam reader
 //  } else {
 //    ...
 //  }
@@ -906,13 +918,13 @@ readBinaryBAM.prototype.throttledRegions2BAM =
         var bamRthis = this;
         var refregmaps = refsNregions.reverse();
 
-        var reduce = function (regmap) {
+        var contfn = function (regmap) {
             bamRthis.region2BAM(
                 regmap,
                 function (bgzfBlks){
                     if (refregmaps.length > 0) {
                         cbfn.call(bamRthis, bgzfBlks,
-                                  reduce, refregmaps.pop());
+                                  contfn, refregmaps.pop());
                     } else {
                         cbfn.call(bamRthis, undefined);
                     };
