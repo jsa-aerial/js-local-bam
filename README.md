@@ -65,6 +65,7 @@ methods
 
   * getChunks - returns all chunks covered by region
 
+Details below
 
 Examples:
 
@@ -76,9 +77,7 @@ bamR.bamFront(function(){}); Get bam front (head and refs)
 var withReads = bamR.refsWithReads().map(function(x) {return x[1]});
 var alns = []
 bamR.getAlns("20", 1000, 10000, function(alnseq){alns = alnseq})
-
 ...
-
 Stream sampled regions somewhere
 var refsNregions = samplingRegions(withReads, {}).regions;
 var bamblks = [bamR.headUba];
@@ -109,14 +108,12 @@ bamR.throttledRegions2BAM(
 
 Constructor for bai reader and decoder.  baifile is a bai binary
 index file.
-
 function readBaiFile(baiFile)
 
 
 Main function for a bai reader.  Obtains and decodes the index
 and caches information on it used by other methods.  So, must be
 called before others.
-
 readBaiFile.prototype.getIndex =
     function(cb)
 
@@ -132,18 +129,15 @@ Returns a vector [[[vfbeg, bobeg], [vfend, boend]], ...] where
 * bobeg is the offset within the inflated block of that block
 * vfend is the virtual file offset of ending bgzf block
 * boend is the offset of last byte in that block
-
 readBaiFile.prototype.bin2Ranges =
     function  (ref, binid)
 
 
 First chunk region of binid.
-
 readBaiFile.prototype.bin2Beg =
     function (binid)
 
 Last chunk region of binid.
-
 readBaiFile.prototype.bin2End =
     function (binid)
 
@@ -151,7 +145,6 @@ readBaiFile.prototype.bin2End =
 For a reference REF region defined by BEG and END return the set of
 chunks of all bins involved as a _flat_ vector of two element
 vectors, each defining a region of a bin.
-
 readBaiFile.prototype.getChunks =
     function (ref, beg, end)
 
@@ -164,8 +157,7 @@ readBaiFile.prototype.getChunks =
 Constructor for BGZF BAM reader and decoder.  baifile is a bai
 binary index file for BAMFILE, a BGZF encoded BAM file.  Inits and
 builds index and initializes the BAM reader.
-
-function readBinaryBAM (baiFile, bamFile, cb)
+<b>function readBinaryBAM</b> (baiFile, bamFile, cb)
 
 
 Obtain the front (apriori schema) data section of a BAM from its
@@ -180,7 +172,6 @@ Parses out the header and references, adds attributes 'head' and
 reference name to reference index map (hash map) and places this on
 attribute 'refhash'.  Finally, calls cb with the header and refs:
 cb(head, refs).
-
 readBinaryBAM.prototype.bamFront =
     function (cb)
 
@@ -188,7 +179,6 @@ readBinaryBAM.prototype.bamFront =
 Converts a reference name to its bam index.  References in bam
 processing always need to be by their index.  Requires that
 bamFront has run.
-
 readBinaryBAM.prototype.refName2Index =
     function (name)
 
@@ -204,7 +194,6 @@ Where ref-bin-info = {binseq: .., intervseq: ...} is the index file
 information for the reference, and ref-bame-info = {name: ...,
 l_ref: ...} is the corresponding BAM file reference name info in
 the BAM header.
-
 readBinaryBAM.prototype.refsWithReads =
     function (cb, runfront)
 
@@ -219,7 +208,6 @@ Due to the adhoc structure of aln information, alignment parsing
 needs to be split between obtaining (via parse) the raw byte arrays
 containing the alignments and the alignments contained in the these
 arrays via secondary parse - see getAlns.
-
 readBinaryBAM.prototype.getAlnUbas =
     function (ref, beg, end, cbfn, binary)
 
@@ -234,7 +222,6 @@ the vector.  Note cbfn is called with this == the bam reader.
 
 Makes use of getAlnUbas as the intermediary parse for the set of
 unsigned byte arrays for the region contained alignments.
-
 readBinaryBAM.prototype.getAlns =
     function (ref, beg, end, cbfn, binary)
 
@@ -255,7 +242,6 @@ Calls CBFN with the resulting vector of bgzf blocks for the region.
 Can be used to write custom bam renderers from segments of the
 containing bam.  See regions2BAM for an example use that works
 across a set of ref/region maps as returned by samplingRegions.
-
 readBinaryBAM.prototype.region2BAM =
     function (regmap, cbfn)
 
@@ -288,7 +274,6 @@ bamR.regions2BAM(
 *** NOTE: in this variant _all_ regmaps in refsNregions are
 *** processed.  See throttledRegions2BAM for variant where the
 *** user, via cbfn / continuation, has more control.
-
 readBinaryBAM.prototype.regions2BAM =
     function (refsNregions, cbfn)
 
@@ -341,12 +326,10 @@ bamR.throttledRegions2BAM(
     } else {
       stream(EOFblk);
       console.log("FINISHED, total bytes sent:", totcnt)}})
-
 readBinaryBAM.prototype.throttledRegions2BAM =
     function (refsNregions, cbfn)
 
 
 Synonym for bai getChunks.  Directly callable on a bamReader.
-
 readBinaryBAM.prototype.getChunks =
     function (ref, beg, end)
