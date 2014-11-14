@@ -69,7 +69,7 @@ Details below
 
 Examples:
 
-```
+```javascript
 With files[0] == bam file
      files[1] == bai file
 
@@ -105,7 +105,7 @@ bamR.throttledRegions2BAM(
 ```
 
 
-================== readBinaryBAM ===================
+================== readBaiFile ===================
 
 
 Constructor for bai reader and decoder.  baifile is a bai binary
