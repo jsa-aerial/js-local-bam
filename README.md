@@ -118,7 +118,7 @@ Main function for a bai reader.  Obtains and decodes the index
 and caches information on it used by other methods.  So, must be
 called before others.
 
-readBaiFile.prototype.*getIndex* = function(cb)
+readBaiFile.prototype.**getIndex** = function(cb)
 
 
 Takes a ref and binid and builds a return vector mapped from the
@@ -133,27 +133,23 @@ Returns a vector [[[vfbeg, bobeg], [vfend, boend]], ...] where
 * vfend is the virtual file offset of ending bgzf block
 * boend is the offset of last byte in that block
 
-readBaiFile.prototype.bin2Ranges =
-    function  (ref, binid)
+readBaiFile.prototype.**bin2Ranges** = function(ref, binid)
 
 
 First chunk region of binid.
 
-readBaiFile.prototype.bin2Beg =
-    function (binid)
+readBaiFile.prototype.**bin2Beg** = function(binid)
 
 Last chunk region of binid.
 
-readBaiFile.prototype.bin2End =
-    function (binid)
+readBaiFile.prototype.**bin2End** = function(binid)
 
 
 For a reference REF region defined by BEG and END return the set of
 chunks of all bins involved as a _flat_ vector of two element
 vectors, each defining a region of a bin.
 
-readBaiFile.prototype.getChunks =
-    function (ref, beg, end)
+readBaiFile.prototype.**getChunks** = function(ref, beg, end)
 
 
 
