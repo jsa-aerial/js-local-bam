@@ -22,7 +22,7 @@ constructors:
 ---
 `readBaiFile` which takes a bam index (bai) filespec and initializes
 a bai reader.  Synopsis:
----
+
 
   * `getIndex` - builds the index information
   * `bin2Ranges` - returns the chunk information for a [ref binid]
@@ -35,7 +35,7 @@ Details below
 ---
 `readBinaryBAM` which takes a bai filespec and a BGZF BAM filespec
 initializes a bai reader and builds binary BAM reader. Synopsis:
----
+
 
   * `bamFront` - obtain and return the bam front material:
     - the header
