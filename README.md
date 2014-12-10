@@ -6,14 +6,18 @@ Javascript local BAM and BAI index file parsing and processing
 
 Include the following libs:
 
-https:raw.github.com/vjeux/jDataView/master/src/jdataview.js
-https:raw.github.com/vjeux/jParser/master/src/jparser.js
-inflate.js (fetch and place or fetch remotely)
-pako_deflate.min.js (fetch and place or fetch remotely)
-jsbgzf.js (fetch and place or fetch remotely)
-binary-bam.js (this file)
+* https:raw.github.com/vjeux/jDataView/master/src/jdataview.js
+* https:raw.github.com/vjeux/jParser/master/src/jparser.js
+* inflate.js (fetch and place or fetch remotely)
+* pako_deflate.min.js (fetch and place or fetch remotely)
+* jsbgzf.js (fetch and place or fetch remotely)
+* js-bv-common.js (fetch and place or fetch remotely)
+* js-local-bam.js (this file)
 
 May also want bv-local-sampling.js
+
+*Note*: JSLibs contains a snapshot of all the dependencies current to
+ this release (see file2.html for example inclusion).
 
 
 Basic user level API.  There are two 'object' types with
