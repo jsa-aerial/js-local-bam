@@ -110,7 +110,7 @@ bamR.throttledRegions2BAM(
 
 ___
 
-`readBaiFile`, API details:
+####`readBaiFile`, API details:
 
 
 ```javascript
@@ -165,7 +165,7 @@ vectors, each defining a region of a bin.
 
 
 ---
-`readBinaryBAM`, API details:
+####`readBinaryBAM`, API details:
 
 
 ```javascript
