@@ -533,32 +533,19 @@ readBaiFile.prototype.getIndex =
 // * boend is the offset of last byte in that block
 readBaiFile.prototype.bin2Ranges =
     function  (ref, binid) {
-        var res = [];
-        var bs = this.idxContent.indexseq[ref].binseq;
-        var cnkseq = bs[this.bhash[ref][binid]].chunkseq;
-
-        for (var i = 0; i < cnkseq.length; i++) {
-            var cnk = cnkseq[i];
-            var cnkBeg = cnk.cnk_beg.valueOf();
-            var cnkEnd = cnk.cnk_end.valueOf();
-            res.push([[rshift16(cnkBeg), low16(cnkBeg)],
-                      [rshift16(cnkEnd), low16(cnkEnd)]]);
-        };
-        return res;
+        return bin2Ranges(this, ref, binid)
     };
 
 // First chunk region of binid.
 readBaiFile.prototype.bin2Beg =
-    function (binid) {
-        var range = bin2Ranges(binid);
-        return range[0];
+    function (ref, binid) {
+        return bin2Beg(this, ref, binid);
     };
 
 // Last chunk region of binid.
 readBaiFile.prototype.bin2End =
-    function (binid) {
-        var range = bin2Ranges(binid);
-        return range[range.length-1];
+    function (ref, binid) {
+        return bin2End(thi, ref, binid);
     };
 
 
@@ -567,22 +554,7 @@ readBaiFile.prototype.bin2End =
 // vectors, each defining a region of a bin.
 readBaiFile.prototype.getChunks =
     function (ref, beg, end) {
-
-        var bids = reg2bins(beg, end+1).filter(
-            function(x){
-                return (this.bhash[ref][x] != undefined);
-            }, this);
-        var bcnks = bids.map(
-            function(x){
-                return this.bin2Ranges(ref, x);
-            }, this);
-        var cnks = bcnks.reduce(
-            function(V, ranges) {
-                ranges.forEach(function(item) {V.push(item);});
-                return V;
-            }, []);
-
-        return cnks;
+        return getChunks(this, ref, beg, end);
     };
 
 
@@ -931,7 +903,7 @@ readBinaryBAM.prototype.throttledRegions2BAM =
                 });
         };
         if (refregmaps.length > 0) {
-            reduce(refregmaps.pop());
+            contfn(refregmaps.pop());
         } else {
             cbfn.call(bamRthis, undefined);
         };

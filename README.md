@@ -19,51 +19,54 @@ May also want bv-local-sampling.js
 Basic user level API.  There are two 'object' types with
 constructors:
 
-readBaiFile which takes a bam index (bai) filespec and initializes
-a bai reader.  Provides methods
+---
+`readBaiFile` which takes a bam index (bai) filespec and initializes
+a bai reader.  Synopsis:
+---
 
-  * getIndex - builds the index information
-  * bin2Ranges - returns the chunk information for a [ref binid]
-  * bin2Beg - returns first chunk of bin
-  * bin2End - returns last chunk of bin
-  * getChunks - returns all chunks for bins covering region in ref
+  * `getIndex` - builds the index information
+  * `bin2Ranges` - returns the chunk information for a [ref binid]
+  * `bin2Beg` - returns first chunk of bin
+  * `bin2End` - returns last chunk of bin
+  * `getChunks` - returns all chunks for bins covering region in ref
 
 Details below
 
-readBinaryBAM which takes a bai filespec and a BGZF BAM filespec
-initializes a bai reader and builds binary BAM reader.  Provides
-methods
+---
+`readBinaryBAM` which takes a bai filespec and a BGZF BAM filespec
+initializes a bai reader and builds binary BAM reader. Synopsis:
+---
 
-  * bamFront - obtain and return the bam front material:
+  * `bamFront` - obtain and return the bam front material:
     - the header
     - the reference list
 
-  * refName2Index - takes a string reference name and returns its
+  * `refName2Index` - takes a string reference name and returns its
     list index
 
-  * refsWithReads - returns a vector of all the listed references
+  * `refsWithReads` - returns a vector of all the listed references
     which have actual read data
 
-  * getAlnUbas - Obtains unsigned byte arrays (UBAs) for a set of
+  * `getAlnUbas` - Obtains unsigned byte arrays (UBAs) for a set of
     alignments associated with a ref and region
 
-  * getAlns - obtains alignment information, in either text or
+  * `getAlns` - obtains alignment information, in either text or
     binary format, for a ref and region.  The binary format is for
     lower level functions constructing new bam file chunks
     (typically from a sampling)
 
-  * region2BAM - takes a region map defining a reference and region
+  * `region2BAM` - takes a region map defining a reference and region
     and builds a vector of bgzf blocks covering the alignment data.
 
-  * regions2BAM - takes a vector of region maps and for each
+  * `regions2BAM` - takes a vector of region maps and for each
     invokes region2BAM, returning the resulting vector of vectors
     of bam chunks
 
-  * throttledRegions2BAM - like regsion2BAM, but builds a
+  * `throttledRegions2BAM` - like regsion2BAM, but builds a
     continuation that controls the stepping process and passes it
     to user cbfn for control along with bam data
 
-  * getChunks - returns all chunks covered by region
+  * `getChunks` - returns all chunks covered by region
 
 Details below
 
@@ -105,77 +108,77 @@ bamR.throttledRegions2BAM(
 ```
 
 
-================== readBaiFile ===================
+___
 
+`readBaiFile`, API details:
 
-Constructor for bai reader and decoder.  baifile is a bai binary
-index file.
 
 ```javascript
 function readBaiFile(baiFile)
 ```
+Constructor for bai reader and decoder.  baifile is a bai binary
+index file.
 
-Main function for a bai reader.  Obtains and decodes the index
-and caches information on it used by other methods.  So, must be
-called before others.
 
 ```javascript
 readBaiFile.prototype.getIndex = function(cb)
 ```
+Main function for a bai reader.  Obtains and decodes the index
+and caches information on it used by other methods.  So, must be
+called before others.
 
+
+```javascript
+readBaiFile.prototype.bin2Ranges = function(ref, binid)
+```
 Takes a ref and binid and builds a return vector mapped from the
 chunk sequence of bin, where each element is a two element vector
 defining the region of a chunk.  The begin and end of each region
 are the base virtual file offsets (the 16 bit right shifted values)
 and the offset within the INflated block (the lower 16 bits).
-Returns a vector [[[vfbeg, bobeg], [vfend, boend]], ...] where
+Returns a vector `[[[vfbeg, bobeg], [vfend, boend]], ...]` where
 
-* vfbeg is the virtual file offset of beginning bgzf block
-* bobeg is the offset within the inflated block of that block
-* vfend is the virtual file offset of ending bgzf block
-* boend is the offset of last byte in that block
+* `vfbeg` is the virtual file offset of beginning bgzf block
+* `bobeg` is the offset within the inflated block of that block
+* `vfend` is the virtual file offset of ending bgzf block
+* `boend` is the offset of last byte in that block
 
-```javascript
-readBaiFile.prototype.bin2Ranges = function(ref, binid)
-```
-
-
-First chunk region of binid.
 
 ```javascript
 readBaiFile.prototype.bin2Beg = function(binid)
 ```
+First chunk region of binid.
 
-Last chunk region of binid.
 
 ```javascript
 readBaiFile.prototype.bin2End = function(binid)
 ```
+Last chunk region of binid.
 
-
-For a reference REF region defined by BEG and END return the set of
-chunks of all bins involved as a _flat_ vector of two element
-vectors, each defining a region of a bin.
 
 ```javascript
 readBaiFile.prototype.getChunks = function(ref, beg, end)
 ```
+For a reference REF region defined by BEG and END return the set of
+chunks of all bins involved as a _flat_ vector of two element
+vectors, each defining a region of a bin.
 
 
+---
+`readBinaryBAM`, API details:
 
-
-================== readBinaryBAM ===================
-
-
-Constructor for BGZF BAM reader and decoder.  baifile is a bai
-binary index file for BAMFILE, a BGZF encoded BAM file.  Inits and
-builds index and initializes the BAM reader.
 
 ```javascript
 function readBinaryBAM (baiFile, bamFile, cb)
 ```
+Constructor for BGZF BAM reader and decoder.  baifile is a bai
+binary index file for BAMFILE, a BGZF encoded BAM file.  Inits and
+builds index and initializes the BAM reader.
 
 
+```javascript
+readBinaryBAM.prototype.bamFront = function(cb)
+```
 Obtain the front (apriori schema) data section of a BAM from its
 reader.  The front section consists of a static fixed size
 'header', and the more important variable length sequence of
@@ -189,37 +192,34 @@ reference name to reference index map (hash map) and places this on
 attribute 'refhash'.  Finally, calls cb with the header and refs:
 cb(head, refs).
 
-```javascript
-readBinaryBAM.prototype.bamFront = function(cb)
-```
-
-
-Converts a reference name to its bam index.  References in bam
-processing always need to be by their index.  Requires that
-bamFront has run.
 
 ```javascript
 readBinaryBAM.prototype.refName2Index = function(name)
 ```
+Converts a reference name to its bam index.  References in bam
+processing always need to be by their index.  Requires that
+bamFront has run.
 
 
+```javascript
+readBinaryBAM.prototype.refsWithReads = function(cb, runfront)
+```
 Return the set of references that have reads in this bam. Requires
 that bamFront has run or if RUNFRONT is true, will implicitly run
 bamFront.  If runfront is not true and bamFront has not yet run,
 calls CB with undefined.
 
-Returns a [[ref-bin-info, ref-name-info]...]
+Returns a `[[ref-bin-info, ref-name-info]...]`
 
 Where ref-bin-info = {binseq: .., intervseq: ...} is the index file
 information for the reference, and ref-bame-info = {name: ...,
 l_ref: ...} is the corresponding BAM file reference name info in
 the BAM header.
 
+
 ```javascript
-readBinaryBAM.prototype.refsWithReads = function(cb, runfront)
+readBinaryBAM.prototype.getAlnUbas = function(ref, beg, end, cbfn, binary)
 ```
-
-
 Obtains the set of raw unsigned byte arrays containing the
 alignments of REF in the region [beg, end).  Ref may be a reference
 index or reference name (in which case it is implicitly converted
@@ -231,11 +231,10 @@ needs to be split between obtaining (via parse) the raw byte arrays
 containing the alignments and the alignments contained in the these
 arrays via secondary parse - see getAlns.
 
+
 ```javascript
-readBinaryBAM.prototype.getAlnUbas = function(ref, beg, end, cbfn, binary)
+readBinaryBAM.prototype.getAlns = function(ref, beg, end, cbfn, binary)
 ```
-
-
 Main function for BAM reader.  For a reference REF alignment region
 defined by BEG and END, obtains the set of bins and chunks covering
 the region, inflates the corresponding data blocks, obtains the raw
@@ -247,11 +246,10 @@ the vector.  Note cbfn is called with this == the bam reader.
 Makes use of getAlnUbas as the intermediary parse for the set of
 unsigned byte arrays for the region contained alignments.
 
+
 ```javascript
-readBinaryBAM.prototype.getAlns = function(ref, beg, end, cbfn, binary)
+readBinaryBAM.prototype.region2BAM = function(regmap, cbfn)
 ```
-
-
 Takes a region map regmap, representing a reference and region of
 form {name:, start:, end:}, where name denotes a reference
 (typically the name of a reference from the reference index), and
@@ -269,11 +267,10 @@ Can be used to write custom bam renderers from segments of the
 containing bam.  See regions2BAM for an example use that works
 across a set of ref/region maps as returned by samplingRegions.
 
+
 ```javascript
-readBinaryBAM.prototype.region2BAM = function(regmap, cbfn)
+readBinaryBAM.prototype.regions2BAM = function(refsNregions, cbfn)
 ```
-
-
 Takes a vector refsNregions of region maps [regmap, ...] and for
 each such regmap, calls readBinaryBAM.region2BAM(regmap,
 cbfn). Each such call will be synchronized to the required io
@@ -300,16 +297,14 @@ bamR.regions2BAM(
       bamblks.push(EOFblk);
       console.log("FINISHED")}});
 ```
-
 **NOTE:** in this variant _all_ regmaps in refsNregions are processed.
 See throttledRegions2BAM for variant where the user, via cbfn /
 continuation, has more control.
 
+
 ```javascript
-readBinaryBAM.prototype.regions2BAM = function(refsNregions, cbfn)
+readBinaryBAM.prototype.throttledRegions2BAM = function(refsNregions, cbfn)
 ```
-
-
 Similar to regions2BAM but where CBFN controls when and how much of
 refsNregions to step through. CBFN must have the following
 signature to make this work:
@@ -363,13 +358,9 @@ bamR.throttledRegions2BAM(
       console.log("FINISHED, total bytes sent:", totcnt)}})
 ```
 
-```javascript
-readBinaryBAM.prototype.throttledRegions2BAM = function(refsNregions, cbfn)
-```
 
-
-Synonym for bai getChunks.  Directly callable on a bamReader.
 
 ```javascript
 readBinaryBAM.prototype.getChunks = function(ref, beg, end)
 ```
+Synonym for bai getChunks.  Directly callable on a bamReader.
