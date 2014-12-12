@@ -608,7 +608,7 @@ readBinaryBAM.prototype.bamFront =
                     getBamRefs(bhp, function(refs){
                         bamRthis.refs = refs;
                         bamRthis.refhash = simpleHash(refs, "name");
-                        bamRthis.headUba = bhp.curBuf.slice(0, bhp.tell());
+                        bamRthis.headUba = bhp.curBuf.subarray(0, bhp.tell());
                         bamRthis.bamFront(cb);
                     });
                 });

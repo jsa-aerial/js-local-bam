@@ -273,11 +273,11 @@ function nextParseRes (p, parse_rule, cb) {
           nextBlockOffset(
             p.theFile, p.nxtFileOffset,
             function(x) {
-              p.curBuf = appendBuffer(p.curBuf, new Uint8Array(b));
-              p.view.buffer = p.curBuf;
-              p.view.byteLength = p.curBuf.byteLength;
+              p.curBuf = appendBuffer(p.curBuf, new Uint8Array(b), true);
+              p.view.buffer = p.curBuf.buffer;
+              p.view.byteLength = p.view.buffer.byteLength;
               p.view._view = new DataView(
-                p.curBuf, 0, p.view.byteLength);
+                p.view.buffer, 0, p.view.byteLength);
               p.curFileOffset = p.nxtFileOffset;
               p.nxtFileOffset = x;
               p.seek(p.offset);
