@@ -54,22 +54,74 @@ function bin2Ranges (indexReader, ref, binid) {
                   [rshift16(cnkEnd), low16(cnkEnd)]]);
     };
     return res;
-};
+}
+
+// Range beg. Take a range (an element a vector of ranges as produced
+// by bin2Ranges) and return the Beg value V[2], where V[0] is the
+// vfbeg and V[1] is the bobeg (see bin2Ranges for definitions)
+function rngBeg (rng) {
+    return rng[0];
+}
+
+// Range end. Take a range (an element a vector of ranges as produced
+// by bin2Ranges) and return the End value V[2], where V[0] is the
+// vfend and V[1] is the boend (see bin2Ranges for definitions)
+function rngEnd (rng) {
+    return rng[1]
+}
+
+// Compare two rng beg or end values (basically a value vector V[2]
+// where V[0] is virtual file offset and V[1] is inflated block
+// offset).  Return - if RV1 < RV2, 0 if RV1 = RV2 and + if RV1 > RV2.
+function rngComp (rv1, rv2) {
+    return (rv1[0] == rv2[0]) ? rv1[1] - rv2[1] : rv1[0] - rv2[0];
+}
+
+// Return whether lrv < rrv
+function rngLess (lrv, rrv) {
+    return (rngComp(lrv, rrv) < 0);
+}
+
+// Return whether lrv = rrv
+function rngEql (lrv, rrv) {
+    return (rngComp(lrv, rrv) == 0);
+}
+
+// Return whether lrv > rrv
+function rngGtr (lrv, rrv) {
+    return (rngComp(lrv, rrv) > 0);
+}
 
 
 // First chunk region of binid.
 function bin2Beg (indexReader, ref, binid) {
     var range = bin2Ranges(indexReader, ref, binid);
     return range[0];
-};
-
+}
 
 // Last chunk region of binid.
 function bin2End (indexReader, ref, binid) {
     var range = bin2Ranges(indexReader, ref, binid);
     return range[range.length-1];
-};
+}
 
+
+function ensureOrderedRngs (sortedcnks) {
+    var newcnks = []
+    for (var i = 1; i < sortedcnks.length; i++) {
+        if (rngGtr(rngEnd(sortedcnks[i-1]),rngBeg(sortedcnks[i]))) {
+            if (!rngGtr(rngEnd(sortedcnks[i-1]),rngEnd(sortedcnks[i]))) {
+                var ncnk = sortedcnks[i-1];
+                ncnk[1] = rngBeg(sortedcnks[i]);
+                newcnks.push(ncnk);
+            };
+        } else {
+            newcnks.push(sortedcnks[i-1]);
+        };
+    }
+    newcnks.push(sortedcnks[sortedcnks.length-1])
+    return newcnks.filter(function(c){return (c!=undefined);});
+}
 
 // For a reference REF region defined by BEG and END return the set of
 // chunks of all bins involved as a _flat_ vector of two element
@@ -80,6 +132,12 @@ function getChunks (indexReader, ref, beg, end) {
         function(x){
             return (indexReader.bhash[ref][x] != undefined);
         }, indexReader);
+    bids = bids.filter(
+      function (b) {
+        return (b >= start16kbBinid &&
+                b <= end16kbBinid);
+      })
+
     var bcnks = bids.map(
         function(x){
             return bin2Ranges(indexReader, ref, x);
@@ -90,9 +148,28 @@ function getChunks (indexReader, ref, beg, end) {
             return V;
         }, []);
 
-    return cnks;
-};
+    sortedcnks = cnks.sort(
+      function(l,r) {
+        return (l[0][0] == r[0][0]) ? l[0][1] - r[0][1] : l[0][0] - r[0][0];
+      });
 
+    return ensureOrderedRngs(sortedcnks);
+}
+
+
+
+// Yes, this is 'crazy', but checkout
+// https://gist.github.com/jed/982883
+//
+// Returns a random v4 UUID of the form
+// xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx, where each x is replaced with
+// a random hexadecimal digit from 0 to f, and y is replaced with a
+// random hexadecimal digit from 8 to b.
+function makeuid (a) {
+  return a ?
+    (a^Math.random()*16>>a/4).toString(16) :
+    ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,makeuid)
+}
 
 
 // Standard log base 2.  Used in bai format bin level calculation
@@ -113,7 +190,7 @@ function simpleHash (items, key) {
         i = i + 1;
     }
     return itemhash;
-};
+}
 
 
 // Some of the binary encoded strings are straight C null terminated
@@ -221,7 +298,7 @@ function wrappedRegionJParser (file, beg, end, fmt, cb) {
                     });
             });
     };
-};
+}
 
 
 // Mid level function.  Takes a jParser instance P and a parser

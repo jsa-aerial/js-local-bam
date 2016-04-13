@@ -38,6 +38,36 @@ function _spred (l, r) {
 
 
 
+// Estimate coverage depth for a single reference index with
+// reads. REF is a vector as returned from
+//
+function estimateRefCoverageDepth (refIndex) {
+    var withLeafBins = refIndex.binseq.filter(
+        function(o){
+            return (o.bin >= start16kbBinid &&
+                    o.bin <= end16kbBinid);});
+
+    var refsegs =
+        withLeafBins.reduce(
+            function(segs, o){
+                var b = o.bin;
+                var relBinNum = (b - start16kbBinid);
+                var position =  (relBinNum * _16KB);
+                var readDepth =
+                    o.chunkseq.reduce(
+                        function(bc, chunk) {
+                            var b = chunk.cnk_beg.valueOf();
+                            var e = chunk.cnk_end.valueOf();
+                            return bc + (rshift16(e) -
+                                         rshift16(b));
+                        }, 0);
+                segs.push(
+                    {relBinNum: relBinNum,
+                     pos: position, depth: readDepth});
+                return segs;
+            }, []);
+    return refsegs;
+}
 
 // An estimator of coverage depth of corresponding data file (for the
 // index reader - bam or vcf) which uses bytes in region segments as
@@ -68,31 +98,7 @@ function estimateCoverageDepth (indexReader, cb) {
             indexWreads.reduce(
                 function(RD, I) {
                     var ref = I[1];
-                    var withLeafBins = I[0].binseq.filter(
-                        function(o){
-                            return (o.bin >= start16kbBinid &&
-                                    o.bin <= end16kbBinid);});
-
-                    refsegs =
-                        withLeafBins.reduce(
-                            function(segs, o){
-                                var b = o.bin;
-                                var relBinNum = (b - start16kbBinid);
-                                var position =  (relBinNum * _16KB);
-                                var readDepth =
-                                    o.chunkseq.reduce(
-                                        function(bc, chunk) {
-                                            var b = chunk.cnk_beg.valueOf();
-                                            var e = chunk.cnk_end.valueOf();
-                                            return bc + (rshift16(e) -
-                                                         rshift16(b));
-                                        }, 0);
-                                segs.push(
-                                    {relBinNum: relBinNum,
-                                     pos: position, depth: readDepth});
-                                return segs;
-                            }, []);
-                    RD[ref] = refsegs;
+                    RD[ref] = estimateRefCoverageDepth(I[0]);
                     return RD;
                 }, {});
         return estimateCoverageDepth(indexReader, cb);
@@ -109,14 +115,18 @@ function estimateCoverageDepth (indexReader, cb) {
 // results which are nil (undefined), otherwise, returns only non nil
 // results.
 function mapSegCoverage (indexReader, refid, fn, keepNils) {
+    if (!indexReader.estimates) {
+        estimateCoverageDepth(indexReader);
+    }
+
     var info = function (i) {
         var e = indexReader.estimates[refid][i];
-        return (e) ? e : {relBinNum: i, pos: i * 16384, depth: 0}
+        return (e) ? e : {relBinNum: i, pos: i * 16384, depth: 0};
     };
 
     var res = [];
     for (var i = 0; i < (end16kbBinid - start16kbBinid); i++) {
-        var user_res = fn.call(indexReader, info(i))
+        var user_res = fn.call(indexReader, info(i));
         if (keepNils) {
             res.push(user_res);
         } else if (user_res) {
@@ -139,16 +149,18 @@ function mapSegCoverage (indexReader, refid, fn, keepNils) {
 // for a sampling.  Defaults are binSize = 40000 bases, binNumber =
 // 20, start = 1.
 //
-// Returns a map {regions: [reginfo...], regstr: json-string-for-regions}
+// Returns a regions vector [reginfo...]
 //
 // where reginfo = {name: ref.name, start: int, end: int} and regions
 // is sorted ascendingly by name by numerical start
 //
-//
 function samplingRegions (refs, options) {
+    console.log("samplingRegions, refs & options: ", refs, options);
+    var options = options ? options : {};
     var bsize = options.binSize || 40000;
     var bcnt  = options.binNumber || 20;
     var start = options.start || 1;
+    var refs = (refs[0].end) ? old2newRefs(refs) : refs;
     var regions =
         refs.reduce(
             function(regs, ref) {
@@ -176,11 +188,7 @@ function samplingRegions (refs, options) {
             return _spred(l.name, r.name);
         }});
 
-    return {regions: regions,
-            regstr: JSON.stringify(regions.map(
-                function(r){
-                    // This is broken - SERVERs should change names if needed!
-                    return {start: r.start, end: r.l_ref, chr: r.name}}))};
+    return regions;
 }
 
 
@@ -193,6 +201,33 @@ function new2oldRefs (refs) {
     return refs.map(function(ref) {return {name: ref.name, end: ref.l_ref}});
 }
 
+// Oposite of above for backward compatibility.
+function old2newRefs (refs) {
+  return refs.map(function(ref) {return {name: ref.name, l_ref: ref.end}});
+}
+
+
+
+function getBamRegionsUrl (regions) {
+    if ( this.sourceType == "url") {
+        var regionStr = "";
+        regions.forEach(
+            function(region) {
+                if (region.start) {
+                    regionStr += " " + region.name + ":" +
+                        region.start + "-" + region.end;
+                } else {
+                    console.log("ERROR, undefined region start", region);
+                }
+            });
+        var url = this.iobio.samtools + "?cmd= view -b " + this.bamUri +
+            regionStr + "&encoding=binary";
+    };
+    return encodeURI(url);
+}
+
+
+
 
 // Obtain a bamstats-alive url encoding for a region sampling of REFS
 // a sq of reference objects as obtained from file header information.
@@ -203,9 +238,9 @@ function new2oldRefs (refs) {
 function bamStatsAliveSamplingURL (refs, options, bsaliveURL) {
     var regionInfo = samplingRegions(refs, options);
     var regions = regionInfo.regions;
-    var regStr = regionInfo.regStr;
+    var regstr = regionInfo.regstr;
     return encodeURI(
-        bsaliveURL +
-            '?cmd=-u 3000 -r \'' + regStr + '\' ' +
-            encodeURIComponent(getBamRegionsUrl(regions)));
+      bsaliveURL +
+      '?cmd=-u 3000 -r \'' + regstr + '\' ' +
+      encodeURIComponent(getBamRegionsUrl(regions)));
 }

@@ -23,7 +23,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.          //
 //                                                                          //
 //                                                                          //
-// Author: Jon Anthony (2014)                                               //
+// Author: Jon Anthony (2014-2015)                                          //
 //                                                                          //
 //--------------------------------------------------------------------------//
 //
@@ -608,7 +608,8 @@ readBinaryBAM.prototype.bamFront =
                     getBamRefs(bhp, function(refs){
                         bamRthis.refs = refs;
                         bamRthis.refhash = simpleHash(refs, "name");
-                        bamRthis.headUba = bhp.curBuf.subarray(0, bhp.tell());
+                        bamRthis.headUba = bgzf( // Save in bgzip format
+                            bhp.curBuf.subarray(0, bhp.tell()));
                         bamRthis.bamFront(cb);
                     });
                 });
@@ -679,7 +680,9 @@ readBinaryBAM.prototype.getAlnUbas =
         var ref = (typeof(ref) == "number") ? ref : this.refName2Index(ref);
         var bamRthis = this;
         var baiR = this.baiR
-        var cnks = baiR.getChunks(ref, beg, end);
+
+        // vector.pop, pops from the _end_
+        var cnks = baiR.getChunks(ref,beg,end);
 
         var aln_ubas = [];
         var fn1 = function (ckbeg, ckend) {
@@ -697,7 +700,7 @@ readBinaryBAM.prototype.getAlnUbas =
                     ubaInfo.uba = bap.curBuf;
                     aln_ubas.push(ubaInfo);
                     if (cnks.length > 0) {
-                        var rng = cnks.pop();
+                        var rng = cnks.shift();
                         fn1(rng[0], rng[1]);
                     } else {
                         cbfn.call(bamRthis, aln_ubas);
@@ -705,8 +708,8 @@ readBinaryBAM.prototype.getAlnUbas =
                 });
         };
 
-        if (cnks.length > 0) {
-            var rng = cnks.pop();
+        if (cnks.length > 0) { console.log("CNKS: ", cnks);
+            var rng = cnks.shift(); console.log("RNG: ", rng);
             fn1(rng[0], rng[1]);
         } else {
             cbfn.call(bamRthis, []);
@@ -815,22 +818,22 @@ readBinaryBAM.prototype.region2BAM =
 readBinaryBAM.prototype.regions2BAM =
     function (refsNregions, cbfn) {
         var bamRthis = this;
-        var refregmaps = refsNregions.reverse();
+        var refregmaps = refsNregions;
 
         var reduce = function (regmap) {
             bamRthis.region2BAM(
                 regmap,
                 function (bgzfBlks){
+                    cbfn.call(bamRthis, bgzfBlks);
                     if (refregmaps.length > 0) {
-                        cbfn.call(bamRthis, bgzfBlks);
-                        reduce(refregmaps.pop());
+                        reduce(refregmaps.shift());
                     } else {
                         cbfn.call(bamRthis, undefined);
                     };
                 });
         };
         if (refregmaps.length > 0) {
-            reduce(refregmaps.pop());
+            reduce(refregmaps.shift());
         } else {
             cbfn.call(bamRthis, undefined);
         };
@@ -888,27 +891,22 @@ readBinaryBAM.prototype.regions2BAM =
 readBinaryBAM.prototype.throttledRegions2BAM =
     function (refsNregions, cbfn) {
         var bamRthis = this;
-        var refregmaps = refsNregions.reverse();
+        var refregmaps = refsNregions;
 
         var contfn = function (regmap) {
-            bamRthis.region2BAM(
-                regmap,
-                function (bgzfBlks){
-                    if (refregmaps.length > 0) {
-                        cbfn.call(bamRthis, bgzfBlks,
-                                  contfn, refregmaps.pop());
-                    } else {
-                        cbfn.call(bamRthis, undefined);
-                    };
-                });
+            if (regmap) {
+                bamRthis.region2BAM(
+                    regmap,
+                    function (bgzfBlks){
+                        cbfn.call(bamRthis,bgzfBlks,contfn,refregmaps.shift());
+                    });
+            } else {
+                cbfn.call(bamRthis, undefined);
+            };
         };
-        if (refregmaps.length > 0) {
-            contfn(refregmaps.pop());
-        } else {
-            cbfn.call(bamRthis, undefined);
-        };
-    };
 
+        contfn(refregmaps.shift());
+    };
 
 
 // Synonym for bai getChunks.  Directly callable on a bamReader.
@@ -917,6 +915,13 @@ readBinaryBAM.prototype.getChunks =
         var baiR = this.baiR;
         return baiR.getChunks(ref, beg, end);
     };
+
+
+
+
+// Streamer for services
+//
+
 
 
 
@@ -933,9 +938,9 @@ function getBamRefs (p, cb) {
 
   var getRef = function(x){
     //console.log("rcnt " + rcnt, "x", x, "refs", refs);
+    rcnt++;
+    refs.push(x);
     if (rcnt < p.head.n_ref){
-      rcnt++;
-      refs.push(x);
       nextParseRes(p, "reference", getRef);
     } else {
       cb.call(this, refs);
@@ -1099,12 +1104,12 @@ function coalesce65KBCnks (alnubas) {
                 Cnks.push([uba]);
             };
             return Cnks;
-        }, []);
+        }, []); tmpubas = grp65kbUbas;
     var coalescedUbas = grp65kbUbas.reduce(
         function (Ubas, grp) {
             Ubas.push(appendBuffers(grp, true));
             return Ubas;
-        });
+        }, []);
     return coalescedUbas;
 }
 
