@@ -746,7 +746,11 @@ readBinaryBAM.prototype.getAlns =
                         for (var i = 0; i < aln_blksizes.length; i++){
                             p.seek(offset);
                             p.aln_end = offset + aln_blksizes[i];
-                            alns.push(p.parse('aln'));
+                            var aln = p.parse('aln');
+                            aln.head.cigarArr = bamRthis.cigarInfo(aln);
+                            aln.head.cigarStr = aln.head.cigarArr.map(function(c) { return c.op_len + c.op;}).join();
+                            aln.head.seqStr = bamRthis.getSeq(aln);
+                            alns.push(aln);
                             offset = p.tell() + 4;
                         };
                     };
