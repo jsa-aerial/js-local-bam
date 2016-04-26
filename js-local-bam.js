@@ -747,6 +747,7 @@ readBinaryBAM.prototype.getAlns =
                             p.seek(offset);
                             p.aln_end = offset + aln_blksizes[i];
                             var aln = p.parse('aln');
+                            aln.head.pos += 1; // add 1 for the change from BAM to SAM format
                             aln.head.cigarArr = bamRthis.cigarInfo(aln);
                             aln.head.cigarStr = aln.head.cigarArr.map(function(c) { return c.op_len + c.op;}).join();
                             aln.head.seqStr = bamRthis.getSeq(aln);
