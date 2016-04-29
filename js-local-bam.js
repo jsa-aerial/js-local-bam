@@ -717,6 +717,12 @@ readBinaryBAM.prototype.getAlnUbas =
     };
 
 
+function isExactRegAln (beg, end, aln) {
+    var s = aln.head.pos;
+    var e = s + aln.head.l_seq;
+    return ((s > beg) && (s <= end) || (e > beg) && (e <= end));
+}
+
 // Main function for BAM reader.  For a reference REF alignment region
 // defined by BEG and END, obtains the set of bins and chunks covering
 // the region, inflates the corresponding data blocks, obtains the raw
@@ -728,8 +734,12 @@ readBinaryBAM.prototype.getAlnUbas =
 // Makes use of getAlnUbas as the intermediary parse for the set of
 // unsigned byte arrays for the region contained alignments.
 readBinaryBAM.prototype.getAlns =
-    function (ref, beg, end, cbfn, binary) {
+    function (ref, beg, end, cbfn, options) {
         var bamRthis = this;
+        var options = options || {};
+        var binary = options.binary; // Return raw ubas
+        var exact = options.exact;   // Return regions strictly in [beg, end]
+        var full = options.full;     // Return full parsed cigars & seqs
 
         bamRthis.getAlnUbas(
             ref, beg, end,
@@ -746,8 +756,24 @@ readBinaryBAM.prototype.getAlns =
                         for (var i = 0; i < aln_blksizes.length; i++){
                             p.seek(offset);
                             p.aln_end = offset + aln_blksizes[i];
-                            alns.push(p.parse('aln'));
+                            var aln = p.parse('aln');
+                            aln.head.pos += 1; // Change to SAM offsets
                             offset = p.tell() + 4;
+                            if (full) { // decode cigar & seq as well
+                                aln.head.cigar = bamRthis.cigarInfo(aln)
+                                aln.head.cigarStr = aln.head.cigar.map(
+                                    function(c) {
+                                        return c.op_len + c.op;
+                                    }).join();
+                                aln.head.seq = bamRthis.getSeq(aln);
+                            };
+                            if (exact) { // filter to exact region
+                                if (isExactRegAln(beg, end, aln)) {
+                                    alns.push(aln);
+                                }
+                            } else {
+                                alns.push(aln);
+                            };
                         };
                     };
                 });
@@ -784,7 +810,7 @@ readBinaryBAM.prototype.region2BAM =
                 var bgzfBlks =
                     getBgzfBlocks(coalesce65KBCnks(alnCnkUbas(alninfos)));
                 cbfn.call(bamRthis, bgzfBlks);
-            }, true);
+            }, {binary: true});
     };
 
 // Takes a vector refsNregions of region maps [regmap, ...] and for
@@ -1206,7 +1232,7 @@ function cigarInfo(cigar) {
 // into a sequence of cigarInfo maps.  ALN is a _parsed_ alignment.
 readBinaryBAM.prototype.cigarInfo =
     function (aln) {
-        return _.map(aln.head.cigar, cigarInfo);
+        return aln.head.cigar.map(cigarInfo);
     };
 
 
@@ -1226,7 +1252,7 @@ function byte2aas (b) {
 // Takes a seq (array of uint8), from the header of an alignment and
 // converts all bytes and then joins them to create bio seq.
 function seq2aas (seq) {
-  var aapairs = _.map(seq, byte2aas);
+  var aapairs = seq.map(byte2aas);
   return aapairs.join("");
 }
 

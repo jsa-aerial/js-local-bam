@@ -90,24 +90,24 @@ Stream sampled regions somewhere
 var refsNregions = samplingRegions(withReads, {}).regions;
 var bamblks = [bamR.headUba];
 
-var bgzfHdr = bgzf(bamR.headUba);
-stream([bgzfHdr]); Send header
+stream(bamR.headUba.buffer); // Send header
 
 var regcnt = 0;
 var totcnt = bgzfHdr.length + EOFblk.length;
 
 bamR.throttledRegions2BAM(
   refsNregions,
-  function(bgzfblks, fn, regmap){
-    Only send two regions
+  function(bgzfblks, contfn, regmap){
+    // Only send two regions
     if (bamblks && regcnt < 2) {
-      stream(bgzfblks);
+      bgzfblks.forEach(
+        function(bgzfblk){stream.write(bgzfblk.buffer)});
       totcnt = totcnt + bgzfblks.reduce(
         function(S, x){return S+x.length},0);
       regcnt = regcnt + 1;
-      fn.call(this, regmap);     Step next region
+      contfn.call(this, regmap); // Step next region
     } else {
-      stream(EOFblk);
+      stream(EOFblk.buffer);
       console.log("FINISHED, total bytes sent:", totcnt)}})
 ```
 
@@ -249,7 +249,7 @@ arrays via secondary parse - see getAlns.
 
 ---
 ```javascript
-readBinaryBAM.prototype.getAlns = function(ref, beg, end, cbfn, binary)
+readBinaryBAM.prototype.getAlns = function(ref, beg, end, cbfn, options)
 ```
 Main function for BAM reader.  For a reference `ref` alignment region
 defined by `beg` and `end`, obtains the set of bins and chunks covering
@@ -261,6 +261,12 @@ the vector.  Note `cbfn` is called with this == the bam reader.
 
 Makes use of `getAlnUbas` as the intermediary parse for the set of
 unsigned byte arrays for the region contained alignments.
+
+`options` is a map of flags:
+
+  `binary`: true/false, if true returns the raw UBArrays (low level usages)
+  `exact`:  true/false, if true returns just the aln info exactly > beg <= end
+  `full`:   true/false, if true decodes cigar and seq fields as well
 
 
 ---
